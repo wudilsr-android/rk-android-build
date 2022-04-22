@@ -224,6 +224,11 @@ $(call add_json_str,  DexpreoptGlobalConfig,             $(DEX_PREOPT_CONFIG))
 
 $(call add_json_bool, WithDexpreopt,                     $(filter true,$(WITH_DEXPREOPT)))
 
+$(call add_json_bool, CameraSupportHDMI, 		 $(filter true,$(CAMERA_SUPPORT_HDMI)))
+$(call add_json_bool, CameraSupportHDMISubVideo, 	 $(filter true,$(CAMERA_SUPPORT_HDMI_SUBVIDEO)))
+$(call add_json_bool, CameraSupportOSD, 		 $(filter true,$(CAMERA_SUPPORT_OSD)))
+$(call add_json_bool, CameraSupportSubDevice, 	 	 $(filter true,$(CAMERA_SUPPORT_SUBDEVICE)))
+
 $(call add_json_list, ManifestPackageNameOverrides,      $(PRODUCT_MANIFEST_PACKAGE_NAME_OVERRIDES))
 $(call add_json_list, PackageNameOverrides,              $(PRODUCT_PACKAGE_NAME_OVERRIDES))
 $(call add_json_list, CertificateOverrides,              $(PRODUCT_CERTIFICATE_OVERRIDES))

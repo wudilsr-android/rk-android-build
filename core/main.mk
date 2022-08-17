@@ -16,6 +16,9 @@ PWD := $(shell pwd)
 DEFAULT_GOAL := droid
 $(DEFAULT_GOAL): droid_targets
 
+# Include prebuild.mk
+-include device/rockchip/common/prebuild.mk
+
 .PHONY: droid_targets
 droid_targets:
 
@@ -40,6 +43,15 @@ include $(BUILD_SYSTEM)/clang/config.mk
 # Write the build number to a file so it can be read back in
 # without changing the command line every time.  Avoids rebuilds
 # when using ninja.
+ifdef ROCKCHIP_BUILD_NUMBER
+$(shell mkdir -p $(SOONG_OUT_DIR) && \
+    echo -n $(ROCKCHIP_BUILD_NUMBER) > $(SOONG_OUT_DIR)/build_number.tmp; \
+    if ! cmp -s $(SOONG_OUT_DIR)/build_number.tmp $(SOONG_OUT_DIR)/build_number.txt; then \
+        mv $(SOONG_OUT_DIR)/build_number.tmp $(SOONG_OUT_DIR)/build_number.txt; \
+    else \
+        rm $(SOONG_OUT_DIR)/build_number.tmp; \
+    fi)
+else
 $(shell mkdir -p $(SOONG_OUT_DIR) && \
     echo -n $(BUILD_NUMBER) > $(SOONG_OUT_DIR)/build_number.tmp; \
     if ! cmp -s $(SOONG_OUT_DIR)/build_number.tmp $(SOONG_OUT_DIR)/build_number.txt; then \
@@ -47,6 +59,7 @@ $(shell mkdir -p $(SOONG_OUT_DIR) && \
     else \
         rm $(SOONG_OUT_DIR)/build_number.tmp; \
     fi)
+endif
 BUILD_NUMBER_FILE := $(SOONG_OUT_DIR)/build_number.txt
 .KATI_READONLY := BUILD_NUMBER_FILE
 $(KATI_obsolete_var BUILD_NUMBER,See https://android.googlesource.com/platform/build/+/master/Changes.md#BUILD_NUMBER)
@@ -62,7 +75,11 @@ ifeq ($(strip $(HAS_BUILD_NUMBER)),false)
   # it will change every time.  Pick a stable value.
   FILE_NAME_TAG := eng.$(BUILD_USERNAME)
 else
-  FILE_NAME_TAG := $(file <$(BUILD_NUMBER_FILE))
+  ifdef ROCKCHIP_BUILD_NUMBER
+    FILE_NAME_TAG := $(ROCKCHIP_BUILD_NUMBER)
+  else
+    FILE_NAME_TAG := $(file <$(BUILD_NUMBER_FILE))
+  endif
 endif
 .KATI_READONLY := FILE_NAME_TAG
 

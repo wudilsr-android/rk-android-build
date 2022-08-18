@@ -1589,7 +1589,15 @@ def _BuildBootableImage(image_name, sourcedir, fs_config_file, info_dict=None,
   if kernel_path is not None:
     cmd.extend(["--kernel", kernel_path])
 
-  fn = os.path.join(sourcedir, "second")
+  if partition_name == "recovery":
+    fn = os.path.join(sourcedir, "resource.img")
+  else:
+    header_version = info_dict.get("booot_header_version")
+    header_version = int(header_version)
+    if header_version < 3:
+      fn = os.path.join(sourcedir, "resource.img")
+    else:
+      fn = os.path.join(sourcedir, "second")
   if os.access(fn, os.F_OK):
     cmd.append("--second")
     cmd.append(fn)
@@ -3017,7 +3025,7 @@ DIFF_PROGRAM_BY_EXT = {
     ".zip": ["imgdiff", "-z"],
     ".jar": ["imgdiff", "-z"],
     ".apk": ["imgdiff", "-z"],
-    ".img": "imgdiff",
+    ".img": "bsdiff",
 }
 
 

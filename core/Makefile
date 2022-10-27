@@ -4026,6 +4026,30 @@ $(strip $(foreach item,$(1),\
 endef
 
 # -----------------------------------------------------------------
+# resource images
+ifdef TARGET_PREBUILT_RESOURCE
+INSTALLED_RESOURCEIMAGE_TARGET := $(PRODUCT_OUT)/resource.img
+
+ifeq ($(BOARD_AVB_ENABLE),true)
+$(INSTALLED_RESOURCEIMAGE_TARGET): $(TARGET_PREBUILT_RESOURCE) $(AVBTOOL) $(BOARD_AVB_RESOURCE_KEY_PATH)
+	cp $(TARGET_PREBUILT_RESOURCE) $@
+	$(AVBTOOL) add_hash_footer \
+	    --image $@ \
+	    $(call get-partition-size-argument,$(BOARD_RESOURCEIMG_PARTITION_SIZE)) \
+	    --partition_name resource $(INTERNAL_AVB_RESOURCE_SIGNING_ARGS) \
+	    $(BOARD_AVB_RESOURCE_ADD_HASH_FOOTER_ARGS)
+
+$(call declare-1p-container,$(INSTALLED_RESOURCEIMAGE_TARGET),)
+$(call declare-container-license-deps,$(INSTALLED_RESOURCEIMAGE_TARGET),$(TARGET_PREBUILT_RESOURCE),$(PRODUCT_OUT)/:/)
+
+UNMOUNTED_NOTICE_DEPS += $(INSTALLED_RESOURCEIMAGE_TARGET)
+else
+$(INSTALLED_RESOURCEIMAGE_TARGET): $(TARGET_PREBUILT_RESOURCE)
+	cp $(TARGET_PREBUILT_RESOURCE) $@
+endif
+endif # TARGET_PREBUILT_RESOURCE
+
+# -----------------------------------------------------------------
 # custom images
 INSTALLED_CUSTOMIMAGES_TARGET :=
 
@@ -4413,6 +4437,10 @@ $(foreach partition,$(BOARD_CUSTOMIMAGES_PARTITION_LIST), \
     $(eval $(call check-and-set-custom-avb-chain-args,$(partition))))
 endif
 
+ifdef TARGET_PREBUILT_RESOURCE
+$(eval $(call check-and-set-avb-args,resource))
+endif
+
 # Add kernel cmdline descriptor for kernel to mount system.img as root with
 # dm-verity. This works when system.img is either chained or not-chained:
 # - chained: The --setup_as_rootfs_from_kernel option will add dm-verity kernel
@@ -4505,6 +4533,9 @@ define extract-avb-chain-public-keys
     $(hide) $(foreach partition,$(BOARD_CUSTOMIMAGES_PARTITION_LIST), \
         $(AVBTOOL) extract_public_key --key $(BOARD_AVB_$(call to-upper,$(partition))_KEY_PATH) \
             --output $(1)/$(partition).avbpubkey;))
+  $(if $(BOARD_AVB_RESOURCE_KEY_PATH),\
+    $(hide) $(AVBTOOL) extract_public_key --key $(BOARD_AVB_RESOURCE_KEY_PATH) \
+        --output $(1)/resource.avbpubkey)
 endef
 
 # Builds a chained VBMeta image. This VBMeta image will contain the descriptors for the partitions
@@ -4587,6 +4618,7 @@ $(INSTALLED_VBMETAIMAGE_TARGET): \
 	    $(INSTALLED_DTBOIMAGE_TARGET) \
 	    $(INSTALLED_PVMFWIMAGE_TARGET) \
 	    $(INSTALLED_CUSTOMIMAGES_TARGET) \
+	    $(INSTALLED_RESOURCEIMAGE_TARGET) \
 	    $(INSTALLED_RECOVERYIMAGE_TARGET) \
 	    $(INSTALLED_VBMETA_SYSTEMIMAGE_TARGET) \
 	    $(INSTALLED_VBMETA_VENDORIMAGE_TARGET) \
@@ -5289,6 +5321,14 @@ ifneq (,$(strip $(BOARD_CUSTOMIMAGES_PARTITION_LIST)))
 	    echo "avb_$(partition)_partition_size=$(BOARD_AVB_$(call to-upper,$(partition))_PARTITION_SIZE)"  >> $@; \
 	    echo "avb_$(partition)_image_list=$(foreach image,$(BOARD_AVB_$(call to-upper,$(partition))_IMAGE_LIST),$(notdir $(image)))" >> $@;)
 endif # BOARD_CUSTOMIMAGES_PARTITION_LIST
+ifdef TARGET_PREBUILT_RESOURCE
+	$(hide) echo "avb_resource_add_hash_footer_args=$(BOARD_AVB_RESOURCE_ADD_HASH_FOOTER_ARGS)" >> $@
+ifdef BOARD_AVB_RESOURCE_KEY_PATH
+	$(hide) echo "avb_resource_key_path=$(BOARD_AVB_RESOURCE_KEY_PATH)" >> $@
+	$(hide) echo "avb_resource_algorithm=$(BOARD_AVB_RESOURCE_ALGORITHM)" >> $@
+	$(hide) echo "avb_resource_rollback_index_location=$(BOARD_AVB_RESOURCE_ROLLBACK_INDEX_LOCATION)" >> $@
+endif # BOARD_AVB_RESOURCE_KEY_PATH
+endif # TARGET_PREBUILT_RESOURCE
 ifneq (,$(strip $(BOARD_AVB_VBMETA_SYSTEM)))
 	$(hide) echo "avb_vbmeta_system=$(BOARD_AVB_VBMETA_SYSTEM)" >> $@
 	$(hide) echo "avb_vbmeta_system_args=$(BOARD_AVB_MAKE_VBMETA_SYSTEM_IMAGE_ARGS)" >> $@
@@ -5675,6 +5715,7 @@ $(BUILT_TARGET_FILES_PACKAGE): \
 	    $(INSTALLED_PVMFWIMAGE_TARGET) \
 	    $(INSTALLED_PVMFW_EMBEDDED_AVBKEY_TARGET) \
 	    $(INSTALLED_CUSTOMIMAGES_TARGET) \
+	    $(INSTALLED_RESOURCEIMAGE_TARGET) \
 	    $(INSTALLED_ANDROID_INFO_TXT_TARGET) \
 	    $(INSTALLED_KERNEL_TARGET) \
 	    $(INSTALLED_RAMDISK_TARGET) \
@@ -6035,6 +6076,10 @@ ifneq ($(strip $(BOARD_CUSTOMIMAGES_PARTITION_LIST)),)
 	$(hide) $(foreach partition,$(BOARD_CUSTOMIMAGES_PARTITION_LIST), \
 	    $(foreach image,$(BOARD_AVB_$(call to-upper,$(partition))_IMAGE_LIST),cp $(image) $(zip_root)/PREBUILT_IMAGES/;))
 endif # BOARD_CUSTOMIMAGES_PARTITION_LIST
+ifdef TARGET_PREBUILT_RESOURCE
+	$(hide) mkdir -p $(zip_root)/PREBUILT_IMAGES
+	$(hide) cp $(INSTALLED_RESOURCEIMAGE_TARGET) $(zip_root)/PREBUILT_IMAGES/
+endif # BOARD_RESOURCEIMAGES_PARTITION_LIST
 	@# The radio images in BOARD_PACK_RADIOIMAGES will be additionally copied from RADIO/ into
 	@# IMAGES/, which then will be added into <product>-img.zip. Such images must be listed in
 	@# INSTALLED_RADIOIMAGE_TARGET.
@@ -6126,6 +6171,7 @@ $(call declare-container-license-deps,$(BUILT_TARGET_FILES_PACKAGE), $(INSTALLED
             $(INSTALLED_PVMFWIMAGE_TARGET) \
             $(INSTALLED_PVMFW_EMBEDDED_AVBKEY_TARGET) \
             $(INSTALLED_CUSTOMIMAGES_TARGET) \
+            $(INSTALLED_RESOURCEIMAGE_TARGET) \
             $(INSTALLED_ANDROID_INFO_TXT_TARGET) \
             $(INSTALLED_KERNEL_TARGET) \
             $(INSTALLED_RAMDISK_TARGET) \
